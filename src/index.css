@@ -1,0 +1,87 @@
+﻿:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #e8eaf2;
+  background: #0e1016;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, textarea, select { font: inherit; }
+button {
+  background: #5865f2;
+  border: none;
+  color: white;
+  border-radius: 7px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+button:hover { background: #4752c4; }
+.app { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 250px;
+  background: #171a24;
+  padding: 24px 15px;
+  border-right: 1px solid #303443;
+  position: relative;
+}
+.sidebar h2 { font-size: 19px; margin: 0; }
+.subtitle { color: #888da5; font-size: 12px; }
+.nav { padding: 13px; border-radius: 7px; margin-top: 12px; }
+.active { background: #30365e; color: #b9c1ff; }
+.disabled { color: #777c90; }
+.sidebar-bottom {
+  position: absolute;
+  bottom: 25px;
+  font-size: 12px;
+  color: #777c90;
+}
+.main { flex: 1; padding: 30px; min-width: 0; }
+header { display: flex; justify-content: space-between; align-items: center; }
+h1 { margin: 0; font-size: 28px; }
+header p { color: #9398ad; }
+.workspace { display: grid; grid-template-columns: 1fr 1.4fr; gap: 20px; }
+.panel {
+  background: #191d28;
+  border: 1px solid #303443;
+  border-radius: 12px;
+  padding: 22px;
+}
+.panel h3 { margin-top: 0; }
+label { display: block; color: #b0b4c6; font-size: 13px; margin: 18px 0 8px; }
+input, textarea, select {
+  background: #10131b;
+  border: 1px solid #393e50;
+  color: #fff;
+  border-radius: 7px;
+  padding: 10px;
+}
+input:not([type="color"]), textarea { width: 100%; }
+input[type="color"] { width: 80px; height: 42px; padding: 3px; }
+.discord { background: #313338; border-radius: 8px; padding: 20px; }
+.embed {
+  border-left: 4px solid;
+  padding: 14px;
+  background: #2b2d31;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+.embed p { white-space: pre-wrap; color: #dbdee1; }
+.embed small { color: #aeb2bb; }
+.code-panel { margin-top: 20px; }
+.code-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.code-header h3 { margin: 0 auto 0 0; }
+pre {
+  background: #0d0f15;
+  padding: 20px;
+  border-radius: 8px;
+  overflow-x: auto;
+  line-height: 1.6;
+  color: #c5d1ff;
+}
+@media (max-width: 850px) {
+  .app { flex-direction: column; }
+  .sidebar { width: 100%; }
+  .sidebar-bottom { position: static; margin-top: 20px; }
+  .main { padding: 15px; }
+  .workspace { grid-template-columns: 1fr; }
+  header { flex-wrap: wrap; gap: 15px; }
+}
