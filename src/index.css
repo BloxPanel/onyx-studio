@@ -85,3 +85,51 @@ pre {
   .workspace { grid-template-columns: 1fr; }
   header { flex-wrap: wrap; gap: 15px; }
 }
+
+/* ONYX INLINE VALIDATION */
+
+.onyx-validated-input {
+  position: relative;
+}
+
+.onyx-validated-input input,
+.onyx-validated-input textarea {
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.onyx-validated-input[data-severity="error"] input,
+.onyx-validated-input[data-severity="error"] textarea {
+  border-color: #ed4245 !important;
+}
+
+.onyx-validated-input[data-severity="warning"] input,
+.onyx-validated-input[data-severity="warning"] textarea {
+  border-color: #faa61a !important;
+}
+
+.onyx-validated-input[data-severity="error"] input:focus,
+.onyx-validated-input[data-severity="error"] textarea:focus {
+  box-shadow: 0 0 0 3px rgba(237, 66, 69, 0.18);
+}
+
+.onyx-validated-input[data-severity="warning"] input:focus,
+.onyx-validated-input[data-severity="warning"] textarea:focus {
+  box-shadow: 0 0 0 3px rgba(250, 166, 26, 0.18);
+}
+
+.onyx-inline-message {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.onyx-inline-message.error {
+  color: #ff9c9f;
+}
+
+.onyx-inline-message.warning {
+  color: #ffd479;
+}
+

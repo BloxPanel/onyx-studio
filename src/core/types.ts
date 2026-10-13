@@ -13,6 +13,14 @@ export interface EmbedDocument {
   color: string;
   footer: string;
   fields: EmbedField[];
+
+  authorName: string;
+  authorUrl: string;
+  authorIconUrl: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  footerIconUrl: string;
+  timestamp: boolean;
 }
 
 export const initialEmbed: EmbedDocument = {
@@ -21,4 +29,12 @@ export const initialEmbed: EmbedDocument = {
   color: '#5865F2',
   footer: 'Made with Onyx Studio',
   fields: [],
+
+  authorName: '',
+  authorUrl: '',
+  authorIconUrl: '',
+  thumbnailUrl: '',
+  imageUrl: '',
+  footerIconUrl: '',
+  timestamp: false,
 };

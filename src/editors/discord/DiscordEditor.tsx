@@ -1,8 +1,11 @@
-﻿import DiscordPreview from './DiscordPreview';
+﻿
+import ValidatedField from '../../components/ValidatedField';
+import DiscordPreview from './DiscordPreview';
 import { useEffect, useState } from 'react';
 import type { EmbedDocument, EmbedField, Framework } from '../../core/types';
 import { initialEmbed } from '../../core/types';
 import { generateCode } from '../../core/exporters';
+import { validateEmbed } from '../../core/validation';
 import '../../index.css';
 
 const STORAGE_KEY = 'onyx-studio-discord-v1';
@@ -45,11 +48,25 @@ function loadEmbed(): EmbedDocument {
       .slice(0, 25);
 
     return {
+      ...initialEmbed,
       title: parsed.title,
       description: parsed.description,
       color: parsed.color,
       footer: parsed.footer,
       fields,
+      authorName: typeof Reflect.get(parsed, 'authorName') === 'string'
+        ? Reflect.get(parsed, 'authorName') : '',
+      authorUrl: typeof Reflect.get(parsed, 'authorUrl') === 'string'
+        ? Reflect.get(parsed, 'authorUrl') : '',
+      authorIconUrl: typeof Reflect.get(parsed, 'authorIconUrl') === 'string'
+        ? Reflect.get(parsed, 'authorIconUrl') : '',
+      thumbnailUrl: typeof Reflect.get(parsed, 'thumbnailUrl') === 'string'
+        ? Reflect.get(parsed, 'thumbnailUrl') : '',
+      imageUrl: typeof Reflect.get(parsed, 'imageUrl') === 'string'
+        ? Reflect.get(parsed, 'imageUrl') : '',
+      footerIconUrl: typeof Reflect.get(parsed, 'footerIconUrl') === 'string'
+        ? Reflect.get(parsed, 'footerIconUrl') : '',
+      timestamp: Reflect.get(parsed, 'timestamp') === true,
     };
   } catch {
     return initialEmbed;
@@ -69,13 +86,66 @@ function DiscordEditor() {
   }, [embed]);
 
   const code = generateCode(framework, embed);
+  const validationIssues = validateEmbed(embed);
+  const errors = validationIssues.filter(issue => issue.severity === 'error');
+  const warnings = validationIssues.filter(issue => issue.severity === 'warning');
+  const canExport = errors.length === 0;
 
+  function issuesFor(...names: string[]) {
+    return validationIssues.filter(issue =>
+      names.includes(issue.field)
+    );
+  }
+
+  function focusFirstError() {
+    const first = errors[0];
+    if (!first) return;
+
+    let fieldKey = first.field;
+
+    if (/^Field \d+$/.test(first.field)) {
+      const part = first.message.toLowerCase().includes('value')
+        ? 'value'
+        : 'name';
+      fieldKey = `${first.field} ${part}`;
+    }
+
+    if (fieldKey === 'Total characters') {
+      fieldKey = 'Description';
+    }
+
+    const targets = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-validation-field]')
+    );
+
+    const target = targets.find(
+      element => element.dataset.validationField === fieldKey
+    );
+
+    const fallback = document.querySelector<HTMLElement>(
+      '[data-validation-field="Embed"]'
+    );
+
+    const destination = target ?? fallback;
+
+    destination?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+
+    const input = destination?.querySelector<
+      HTMLInputElement | HTMLTextAreaElement
+    >('input, textarea');
+
+    input?.focus({ preventScroll: true });
+  }
   function updateEmbed<K extends keyof EmbedDocument>(
     key: K,
     value: EmbedDocument[K]
   ) {
     setEmbed(previous => ({ ...previous, [key]: value }));
   }
+
 
   function addField() {
     if (embed.fields.length >= 25) return;
@@ -116,6 +186,10 @@ function DiscordEditor() {
   }
 
   function downloadCode() {
+    if (!canExport) {
+      focusFirstError();
+      return;
+    }
     const blob = new Blob([code], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -128,6 +202,10 @@ function DiscordEditor() {
   }
 
   async function copyCode() {
+    if (!canExport) {
+      focusFirstError();
+      return;
+    }
     try {
       await navigator.clipboard.writeText(code);
     } catch (error) {
@@ -164,11 +242,38 @@ function DiscordEditor() {
         </header>
 
         <div className="workspace">
-          <section className="panel">
+          <section className="panel" data-validation-field="Embed">
             <h3>Embed Properties</h3>
 
-            <label htmlFor="embed-title">Title</label>
-            <input
+            {validationIssues
+              .filter(issue => issue.field === 'Embed')
+              .map((issue, index) => (
+                <div
+                  key={index}
+                  data-onyx-embed-error
+                  role="alert"
+                  style={{
+                    padding: '12px 14px',
+                    marginBottom: 18,
+                    border: '1px solid #ed4245',
+                    borderRadius: 8,
+                    background: 'rgba(237, 66, 69, 0.08)',
+                    color: '#ff9c9f',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <strong>⚠ Invalid Embed</strong>
+                  <div>{issue.message}</div>
+                </div>
+              ))}
+
+<ValidatedField
+  label="Title"
+  fieldKey="Title"
+  issues={issuesFor('Title')}
+>
+  <input
               id="embed-title"
               maxLength={256}
               value={embed.title}
@@ -176,9 +281,14 @@ function DiscordEditor() {
                 updateEmbed('title', event.target.value)
               }
             />
+</ValidatedField>
 
-            <label htmlFor="embed-description">Description</label>
-            <textarea
+<ValidatedField
+  label="Description"
+  fieldKey="Description"
+  issues={issuesFor('Description')}
+>
+  <textarea
               id="embed-description"
               rows={5}
               maxLength={4096}
@@ -187,6 +297,7 @@ function DiscordEditor() {
                 updateEmbed('description', event.target.value)
               }
             />
+</ValidatedField>
 
             <label htmlFor="embed-color">Accent Color</label>
             <input
@@ -198,8 +309,12 @@ function DiscordEditor() {
               }
             />
 
-            <label htmlFor="embed-footer">Footer</label>
-            <input
+<ValidatedField
+  label="Footer Text"
+  fieldKey="Footer"
+  issues={issuesFor('Footer')}
+>
+  <input
               id="embed-footer"
               maxLength={2048}
               value={embed.footer}
@@ -207,7 +322,106 @@ function DiscordEditor() {
                 updateEmbed('footer', event.target.value)
               }
             />
+</ValidatedField>
 
+            <h3 style={{ marginTop: 28 }}>Advanced Properties</h3>
+
+<ValidatedField
+  label="Author Name"
+  fieldKey="Author"
+  issues={issuesFor('Author')}
+>
+  <input
+              maxLength={256}
+              value={embed.authorName}
+              onChange={e => updateEmbed('authorName', e.target.value)}
+            />
+</ValidatedField>
+            
+
+<ValidatedField
+  label="Author URL"
+  fieldKey="Author URL"
+  issues={issuesFor('Author URL')}
+>
+  <input
+              type="url"
+              placeholder="https://example.com"
+              value={embed.authorUrl}
+              onChange={e => updateEmbed('authorUrl', e.target.value)}
+            />
+</ValidatedField>
+            
+
+<ValidatedField
+  label="Author Icon URL"
+  fieldKey="Author icon"
+  issues={issuesFor('Author icon')}
+>
+  <input
+              type="url"
+              placeholder="https://example.com/avatar.png"
+              value={embed.authorIconUrl}
+              onChange={e => updateEmbed('authorIconUrl', e.target.value)}
+            />
+</ValidatedField>
+            
+
+<ValidatedField
+  label="Thumbnail URL"
+  fieldKey="Thumbnail"
+  issues={issuesFor('Thumbnail')}
+>
+  <input
+              type="url"
+              placeholder="https://example.com/thumbnail.png"
+              value={embed.thumbnailUrl}
+              onChange={e => updateEmbed('thumbnailUrl', e.target.value)}
+            />
+</ValidatedField>
+            
+
+<ValidatedField
+  label="Image URL"
+  fieldKey="Image"
+  issues={issuesFor('Image')}
+>
+  <input
+              type="url"
+              placeholder="https://example.com/image.png"
+              value={embed.imageUrl}
+              onChange={e => updateEmbed('imageUrl', e.target.value)}
+            />
+</ValidatedField>
+            
+
+<ValidatedField
+  label="Footer Icon URL"
+  fieldKey="Footer icon"
+  issues={issuesFor('Footer icon')}
+>
+  <input
+              type="url"
+              placeholder="https://example.com/footer.png"
+              value={embed.footerIconUrl}
+              onChange={e => updateEmbed('footerIconUrl', e.target.value)}
+            />
+</ValidatedField>
+            
+
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}>
+              <input
+                type="checkbox"
+                style={{ width: 'auto' }}
+                checked={embed.timestamp}
+                onChange={e => updateEmbed('timestamp', e.target.checked)}
+              />
+              Include Timestamp
+            </label>
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -273,28 +487,42 @@ function DiscordEditor() {
                   </div>
                 </div>
 
-                <label>Field Name</label>
-                <input
-                  maxLength={256}
-                  value={field.name}
-                  onChange={event =>
-                    updateField(field.id, {
-                      name: event.target.value,
-                    })
-                  }
-                />
+                <ValidatedField
+  label="Field Name"
+  fieldKey={`Field ${index + 1} name`}
+  issues={validationIssues.filter(issue =>
+    issue.field === `Field ${index + 1} name` ||
+    (issue.field === `Field ${index + 1}` &&
+     issue.message.toLowerCase().includes('name'))
+  )}
+>
+  <input
+    maxLength={256}
+    value={field.name}
+    onChange={event =>
+      updateField(field.id, { name: event.target.value })
+    }
+  />
+</ValidatedField>
 
-                <label>Field Value</label>
-                <textarea
-                  rows={3}
-                  maxLength={1024}
-                  value={field.value}
-                  onChange={event =>
-                    updateField(field.id, {
-                      value: event.target.value,
-                    })
-                  }
-                />
+                <ValidatedField
+  label="Field Value"
+  fieldKey={`Field ${index + 1} value`}
+  issues={validationIssues.filter(issue =>
+    issue.field === `Field ${index + 1} value` ||
+    (issue.field === `Field ${index + 1}` &&
+     issue.message.toLowerCase().includes('value'))
+  )}
+>
+  <textarea
+    rows={3}
+    maxLength={1024}
+    value={field.value}
+    onChange={event =>
+      updateField(field.id, { value: event.target.value })
+    }
+  />
+</ValidatedField>
 
                 <label style={{
                   display: 'flex',
@@ -320,6 +548,26 @@ function DiscordEditor() {
           <DiscordPreview embed={embed} />
         </div>
 
+                <section className="panel" style={{ marginTop: 20 }}>
+  <h3>Embed Validation</h3>
+  <p
+    role="status"
+    style={{
+      color: errors.length > 0
+        ? '#ff9c9f'
+        : warnings.length > 0
+          ? '#ffd479'
+          : '#43b581',
+      marginBottom: 0,
+    }}
+  >
+    {errors.length > 0
+      ? `${errors.length} error(s) — fix the highlighted inputs before exporting.`
+      : warnings.length > 0
+        ? `${warnings.length} warning(s) — check the highlighted inputs.`
+        : '✓ No validation issues detected.'}
+  </p>
+</section>
         <section className="panel code-panel">
           <div className="code-header">
             <h3>Generated Code</h3>
@@ -349,5 +597,15 @@ function DiscordEditor() {
 }
 
 export default DiscordEditor;
+
+
+
+
+
+
+
+
+
+
 
 
