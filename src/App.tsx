@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import DiscordEditor from './editors/discord/DiscordEditor';
 import WebsiteEditor from './editors/website/WebsiteEditor';
 
@@ -6,7 +6,7 @@ export default function App() {
   const [workspace, setWorkspace] = useState<'discord' | 'website'>('website');
 
   return (
-    <>
+    <div className={workspace === 'website' ? 'onyx-website-workspace' : undefined}>
       <nav style={{
         display: 'flex',
         alignItems: 'center',
@@ -46,6 +46,6 @@ export default function App() {
         </button>
       </nav>
       {workspace === 'website' ? <WebsiteEditor /> : <DiscordEditor />}
-    </>
+    </div>
   );
 }

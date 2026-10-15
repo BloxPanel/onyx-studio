@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent, SetStateAction } from 'react';
 import type { BlockType, WebBlock, WebProject } from './websiteTypes';
-import { createBlock, initialWebsite, DESIGN_WIDTH, DEFAULT_SECTION_HEIGHT } from './websiteTypes';
+import { blockTypes, cardPresets, createBlock, initialWebsite, DESIGN_WIDTH, DEFAULT_SECTION_HEIGHT } from './websiteTypes';
 import { exportWebsite } from './websiteExporter';
 import WebsiteStyleInspector from './WebsiteStyleInspector';
+import { iconStyle } from './websiteIcons';
+import { validProject } from './websiteValidation';
+import WebsiteContentInspector from './WebsiteContentInspector';
 import './website.css';
 const STORAGE_KEY = 'onyx-studio-website-v1';
-const types: BlockType[] = ['section', 'heading', 'text', 'button', 'image', 'divider', 'card'];
+const HISTORY_LIMIT = 50;
+const types = blockTypes;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const numberOr = (value: number | undefined, fallback: number) => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 const isHex = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
@@ -45,28 +49,6 @@ function move(blocks: WebBlock[], id: string, direction: -1 | 1): WebBlock[] {
   }
   return blocks.map(block => ({ ...block, children: move(block.children, id, direction) }));
 }
-function validBlock(value: unknown, depth = 0): value is WebBlock {
-  if (depth > 8 || typeof value !== 'object' || value === null) return false;
-  const block = value as Partial<WebBlock>;
-  return typeof block.id === 'string' && types.includes(block.type as BlockType) &&
-    typeof block.text === 'string' && typeof block.url === 'string' &&
-    typeof block.color === 'string' && typeof block.background === 'string' &&
-    typeof block.fontSize === 'number' && Number.isFinite(block.fontSize) &&
-    typeof block.padding === 'number' && Number.isFinite(block.padding) &&
-    ['left','center','right'].includes(block.align ?? '') && Array.isArray(block.children) &&
-    block.children.length <= 500 && block.children.every(child => validBlock(child, depth + 1)) &&
-    ['x','y','width','height','sectionHeight'].every(key => {
-      const v = block[key as keyof WebBlock];
-      return v === undefined || (typeof v === 'number' && Number.isFinite(v));
-    });
-}
-function validProject(value: unknown): value is WebProject {
-  if (typeof value !== 'object' || value === null) return false;
-  const p = value as Partial<WebProject>;
-  return p.version === 1 && typeof p.title === 'string' && p.title.length <= 200 &&
-    typeof p.background === 'string' && isHex(p.background) && Array.isArray(p.blocks) &&
-    p.blocks.length <= 500 && p.blocks.every(block => validBlock(block));
-}
 function loadProject(): WebProject {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -95,37 +77,49 @@ export default function WebsiteEditor() {
   const gesture = useRef<Gesture | null>(null);
   const undoStack = useRef<WebProject[]>([]);
   const redoStack = useRef<WebProject[]>([]);
+  const [historyAvailability, setHistoryAvailability] = useState({ undo: false, redo: false });
   const clipboard = useRef<WebBlock | null>(null);
   const projectRef = useRef(project);
-  projectRef.current = project;
   const selectedRef = useRef(selectedId);
-  selectedRef.current = selectedId;
+  useEffect(() => { selectedRef.current = selectedId; }, [selectedId]);
   const gestureStart = useRef<WebProject | null>(null);
+  function refreshHistoryAvailability() {
+    setHistoryAvailability({ undo: undoStack.current.length > 0, redo: redoStack.current.length > 0 });
+  }
+  function recordChange(previous: WebProject) {
+    undoStack.current.push(previous);
+    if (undoStack.current.length > HISTORY_LIMIT) undoStack.current.shift();
+    redoStack.current = [];
+    refreshHistoryAvailability();
+  }
   function commitProject(change: SetStateAction<WebProject>) {
+    if (gesture.current) return;
     const previous = projectRef.current;
     const next = typeof change === 'function' ? change(previous) : change;
     if (JSON.stringify(previous) === JSON.stringify(next)) return;
-    undoStack.current.push(previous);
-    if (undoStack.current.length > 100) undoStack.current.shift();
-    redoStack.current = [];
+    recordChange(previous);
     projectRef.current = next;
     setProject(next);
   }
   function undo() {
+    if (gesture.current) return;
     const previous = undoStack.current.pop();
     if (!previous) return;
     redoStack.current.push(projectRef.current);
     projectRef.current = previous;
     setProject(previous);
     setSelectedId(null);
+    refreshHistoryAvailability();
   }
   function redo() {
+    if (gesture.current) return;
     const next = redoStack.current.pop();
     if (!next) return;
     undoStack.current.push(projectRef.current);
     projectRef.current = next;
     setProject(next);
     setSelectedId(null);
+    refreshHistoryAvailability();
   }
   function deleteSelected() {
     const id = selectedRef.current;
@@ -160,18 +154,33 @@ export default function WebsiteEditor() {
     const handleKey = (event: KeyboardEvent) => {
       const target = event.target;
       const editing = target instanceof HTMLElement && (target.isContentEditable || Boolean(target.closest('input, textarea, select, [contenteditable="true"]')));
-      if (editing || event.altKey) return;
+      if (editing || event.altKey || event.isComposing || gesture.current) return;
       const mod = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
       if (mod && key === 'z' && !event.shiftKey) { event.preventDefault(); undo(); }
       else if (mod && (key === 'y' || (key === 'z' && event.shiftKey))) { event.preventDefault(); redo(); }
       else if (mod && key === 'c' && selectedRef.current) { event.preventDefault(); copySelected(); }
       else if (mod && key === 'v' && clipboard.current) { event.preventDefault(); pasteSelected(); }
+      else if (!mod && ['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(key) && selectedRef.current) {
+        const block = findBlock(projectRef.current.blocks, selectedRef.current);
+        if (!block || block.type === 'section') return;
+        event.preventDefault();
+        const horizontal = key === 'arrowleft' || key === 'arrowright';
+        const section = projectRef.current.blocks.find(item => item.type === 'section' && findBlock(item.children, block.id));
+        if (!section) return;
+        const axis = horizontal ? 'x' : 'y';
+        const limit = horizontal ? DESIGN_WIDTH : numberOr(section.sectionHeight, DEFAULT_SECTION_HEIGHT);
+        const size = horizontal ? numberOr(block.width, 800) : numberOr(block.height, 80);
+        const fallback = horizontal ? 100 : 35 + Math.max(0, section.children.indexOf(block)) * 110;
+        const position = clamp(numberOr(block[axis], fallback) + (key === 'arrowleft' || key === 'arrowup' ? -1 : 1),
+          0, Math.max(0, limit - size));
+        commitProject(previous => ({ ...previous, blocks: modify(previous.blocks, block.id, item => ({ ...item, [axis]: position })) }));
+      }
       else if (!mod && (key === 'backspace' || key === 'delete') && selectedRef.current) { event.preventDefault(); deleteSelected(); }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, []);
+  });
 
   useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(project)); } catch (error) { console.warn('Autosave failed', error); } }, [project]);
   useEffect(() => {
@@ -197,9 +206,9 @@ export default function WebsiteEditor() {
       const index = parent.children.length;
       block.x = 100 + (index % 3) * 35;
       block.y = 35 + index * 85;
-      block.width = type === 'card' ? 360 : type === 'button' ? 240 : 800;
-      block.height = type === 'card' ? 310 : type === 'divider' ? 12 : type === 'heading' ? 90 : type === 'button' ? 70 : 100;
-      const neededHeight = block.y + block.height + 35;
+      // Keep component-specific default dimensions.
+      block.x = Math.min(block.x, DESIGN_WIDTH - (block.width ?? 800));
+      const neededHeight = block.y + (block.height ?? 80) + 35;
       commitProject(previous => ({ ...previous, blocks: modify(previous.blocks, parent.id, section => ({
         ...section, sectionHeight: Math.max(numberOr(section.sectionHeight, DEFAULT_SECTION_HEIGHT), neededHeight),
         children: [...section.children, block],
@@ -208,7 +217,7 @@ export default function WebsiteEditor() {
     setSelectedId(block.id);
   }
   function beginGesture(event: ReactPointerEvent<HTMLDivElement>, block: WebBlock, section: WebBlock, kind: 'move' | 'resize') {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || gesture.current) return;
     event.stopPropagation(); event.preventDefault();
     setSelectedId(block.id);
     const rect = event.currentTarget.closest('.onyx-design-section')?.getBoundingClientRect();
@@ -300,9 +309,7 @@ export default function WebsiteEditor() {
     const start = gestureStart.current;
     gestureStart.current = null;
     if (start && JSON.stringify(start) !== JSON.stringify(projectRef.current)) {
-      undoStack.current.push(start);
-      if (undoStack.current.length > 100) undoStack.current.shift();
-      redoStack.current = [];
+      recordChange(start);
     }
   }
   function renderElement(block: WebBlock, section: WebBlock, index: number) {
@@ -312,7 +319,7 @@ export default function WebsiteEditor() {
     const height = numberOr(block.height, 80);
     const active = selectedId === block.id;
     const style: CSSProperties = {
-      position: 'absolute', left: x, top: y, width, height, boxSizing: 'border-box',
+      position: 'absolute', left: x, top: y, width, height, zIndex: index, boxSizing: 'border-box',
       color: block.color, background: block.background, fontSize: block.fontSize,
       padding: block.padding, textAlign: block.align, overflow: 'hidden', overflowWrap: 'anywhere',
       fontFamily: block.fontFamily ?? 'Arial, sans-serif',
@@ -331,7 +338,7 @@ export default function WebsiteEditor() {
     };
     return <div key={block.id} className={`onyx-free-block ${active ? 'active' : ''}`}
       style={style} onPointerDown={event => beginGesture(event, block, section, 'move')}
-      onPointerMove={handlePointerMove} onPointerUp={endGesture} onPointerCancel={endGesture}
+      onPointerMove={handlePointerMove} onPointerUp={endGesture} onPointerCancel={endGesture} onLostPointerCapture={endGesture}
       onClick={event => { event.stopPropagation(); setSelectedId(block.id); }}>
       {block.type === 'divider' && <div aria-hidden="true" style={{
         position: 'absolute', left: 0, right: 0, top: '50%',
@@ -351,6 +358,19 @@ export default function WebsiteEditor() {
       {block.type === 'text' && <p style={{ margin: 0, fontSize: 'inherit', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{block.text}</p>}
       {block.type === 'button' && <span className="onyx-preview-link">{block.text}</span>}
       {block.type === 'image' && (block.url ? <img src={block.url} alt={block.text} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} draggable={false} /> : <span>Enter an image URL</span>)}
+      {block.type === 'icon' && <div className="website-component-fill"><span role="img" aria-label={block.text || block.iconName || 'Icon'} style={iconStyle(block.iconName, block.iconSize ?? 48)} /></div>}
+      {block.type === 'badge' && <div className="website-component-fill">
+        {block.showIcon && <span aria-hidden="true" style={iconStyle(block.iconName, block.iconSize ?? 18)} />}{block.text}
+      </div>}
+      {block.type === 'container' && block.imageUrl && <img src={block.imageUrl} alt={block.text} draggable={false} style={{ width: '100%', height: '100%', objectFit: block.imageFit ?? 'cover' }} />}
+      {block.type === 'screenshot' && <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {block.browserHeader !== false && <div className="website-browser-header">&#9679; &#9679; &#9679; &nbsp; {block.text || 'Browser preview'}</div>}
+        {block.url ? <img src={block.url} alt={block.text} draggable={false} style={{ width: '100%', flex: 1, minHeight: 0, objectFit: block.imageFit ?? 'contain' }} /> : <div className="website-component-fill">Enter a screenshot image URL</div>}
+      </div>}
+      {block.type === 'faq' && <div style={{ height: '100%', overflow: 'auto', pointerEvents: 'none' }}>
+        <strong>{block.faqOpen ? '\u25be' : '\u25b8'} {block.text}</strong>
+        {block.faqOpen && <p style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{block.faqAnswer ?? ''}</p>}
+      </div>}
       {active && <><span className="onyx-block-tag">{block.type}</span><div className="onyx-resize-handle"
         onPointerDown={event => { event.stopPropagation(); beginGesture(event, block, section, 'resize'); }} /></>}
     </div>;
@@ -378,7 +398,9 @@ export default function WebsiteEditor() {
       const parsed: unknown = JSON.parse(await file.text());
       if (!validProject(parsed)) throw new Error('Unsupported or invalid .onyx project.');
       if (!window.confirm('Replace the current website with this project?')) return;
+      gesture.current = null; gestureStart.current = null; setAlignmentGuides(null);
       setProject(parsed); projectRef.current = parsed; undoStack.current = []; redoStack.current = []; setSelectedId(null);
+      refreshHistoryAvailability();
     } catch (error) { alert(error instanceof Error ? error.message : 'Unable to load project.'); }
   }
   const inputColor = (value: string) => isHex(value) ? value : '#172033';
@@ -386,11 +408,41 @@ export default function WebsiteEditor() {
     <div className="website-toolbar">
       <strong>ONYX - Website Studio</strong>
       <div className="website-actions">
+        <button type="button" onClick={undo} disabled={!historyAvailability.undo}
+          title="Undo (Ctrl+Z)" aria-keyshortcuts="Control+Z Meta+Z">Undo</button>
+        <button type="button" onClick={redo} disabled={!historyAvailability.redo}
+          title="Redo (Ctrl+Y or Ctrl+Shift+Z)" aria-keyshortcuts="Control+Y Control+Shift+Z Meta+Shift+Z">Redo</button>
         <button onClick={() => setDevice('desktop')}>Desktop</button>
         <button onClick={() => setDevice('mobile')}>Mobile</button>
         <button onClick={() => download('website.onyx', JSON.stringify(project, null, 2), 'application/json')}>Save Project</button>
         <button onClick={() => fileInput.current?.click()}>Open Project</button>
         <button onClick={() => download('index.html', exportWebsite(project), 'text/html')}>Export HTML</button>
+        <details className="website-export-dropdown" onKeyDown={event => {
+          event.stopPropagation();
+          if (event.key === 'Escape') {
+            event.currentTarget.open = false;
+            event.currentTarget.querySelector('summary')?.focus();
+          }
+        }}>
+          <summary aria-label="Edit export metadata" title="Edit export metadata">&#9662;</summary>
+          <div className="website-export-metadata">
+            <strong>Export Metadata</strong>
+            <p className="website-muted">Saved with your project and included in exported HTML.</p>
+            <label>Page Title<input maxLength={200} value={project.title} onChange={event => commitProject(previous => ({ ...previous, title: event.target.value }))} /></label>
+            {([
+              ['description', 'Description'], ['author', 'Author'], ['keywords', 'Keywords (comma-separated)'],
+              ['canonicalUrl', 'Canonical URL'], ['imageUrl', 'Social Preview Image URL'],
+              ['faviconUrl', 'Favicon URL'], ['language', 'Language (e.g. en or en-US)'],
+            ] as const).map(([key, label]) => <label key={key}>{label}
+              {key === 'description' ? <textarea rows={3} maxLength={2000} value={project.metadata?.[key] ?? ''}
+                onChange={event => commitProject(previous => ({ ...previous, metadata: { ...previous.metadata, [key]: event.target.value } }))} />
+                : <input type={key.endsWith('Url') ? 'url' : 'text'} maxLength={2000} value={project.metadata?.[key] ?? ''}
+                  placeholder={key === 'language' ? 'en' : key.endsWith('Url') ? 'https://…' : ''}
+                  onChange={event => commitProject(previous => ({ ...previous, metadata: { ...previous.metadata, [key]: event.target.value } }))} />}
+            </label>)}
+            <button type="button" onClick={() => download('index.html', exportWebsite(project), 'text/html')}>Download HTML</button>
+          </div>
+        </details>
         <input hidden ref={fileInput} type="file" accept=".onyx,.json" onChange={event => {
           const file = event.target.files?.[0]; if (file) void openProject(file); event.target.value = '';
         }} />
@@ -400,8 +452,8 @@ export default function WebsiteEditor() {
       <aside className="website-library">
         <h3>Components</h3>
         <p className="website-muted">Select a section, then add elements inside it.</p>
-        {types.map(type => <button key={type} className="website-library-item" onClick={() => addBlock(type)}>+ {type[0].toUpperCase() + type.slice(1)}</button>)}
-        <p className="website-muted">Drag to move; resize from the corner. Ctrl+Z/Y undo/redo, Ctrl+C/V copy/paste, Backspace deletes. Shortcuts work outside text fields.</p>
+        {types.map(type => <button key={type} className="website-library-item" onClick={() => addBlock(type)}>+ {type === 'screenshot' ? 'Screenshot Frame' : type === 'faq' ? 'FAQ' : type[0].toUpperCase() + type.slice(1)}</button>)}
+        <p className="website-muted">Drag to move; resize from the corner. Arrow keys nudge by 1px. Ctrl+Z/Y undo/redo, Ctrl+C/V copy/paste, Backspace deletes. Shortcuts work outside text fields.</p>
       </aside>
       <main className="website-canvas-area" onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}>
         <div className="website-canvas-label">{device === 'desktop' ? 'Desktop' : 'Mobile'} - Click, drag, and resize - {Math.round(scale * 100)}% zoom</div>
@@ -420,8 +472,9 @@ export default function WebsiteEditor() {
           <label>Page Background</label><input type="color" value={inputColor(project.background)} onChange={event => commitProject(previous => ({ ...previous, background: event.target.value }))} />
           <p className="website-muted">Select an element or section to customize it.</p>
         </> : <>
-          <strong>{selected.type.toUpperCase()}</strong>
-          {selected.type !== 'section' && selected.type !== 'divider' && <>
+          <strong>{selected.type === 'screenshot' ? 'SCREENSHOT FRAME' : selected.type.toUpperCase()}</strong>
+          <fieldset className="website-property-section"><legend>Content</legend>
+          {!['section', 'divider', 'icon', 'badge', 'container', 'screenshot', 'faq'].includes(selected.type) && <>
             <label>{selected.type === 'image' ? 'Alt Text' : selected.type === 'card' ? 'Card Title' : 'Content'}</label>
             <textarea rows={3} value={selected.text} onChange={event => updateSelected({ text: event.target.value })} />
           </>}
@@ -430,6 +483,10 @@ export default function WebsiteEditor() {
             <input value={selected.url} onChange={event => updateSelected({ url: event.target.value })} />
           </>}
           {selected.type === 'card' && <>
+            <label>Card Preset</label>
+            <select aria-label="Card Preset" value={selected.cardPreset ?? 'project'} onChange={event => updateSelected(cardPresets[event.target.value as keyof typeof cardPresets])}>
+              <option value="project">Project</option><option value="feature">Feature</option><option value="information">Information</option>
+            </select>
             <label>Card Description</label>
             <textarea rows={4} value={selected.cardDescription ?? ''} onChange={event => updateSelected({ cardDescription: event.target.value })} />
             <label>Icon Image URL</label>
@@ -443,26 +500,11 @@ export default function WebsiteEditor() {
             <label>Content Spacing - {selected.cardGap ?? 12}px</label>
             <input type="range" min="0" max="40" value={selected.cardGap ?? 12} onChange={event => updateSelected({ cardGap: Number(event.target.value) })} />
           </>}
-          {selected.type === 'divider' ? <>
-            <label>Line Color</label>
-            <input type="color" value={inputColor(selected.borderColor ?? '#94a3b8')}
-              onChange={event => updateSelected({ borderColor: event.target.value })} />
-            <label>Line Thickness - {selected.borderWidth ?? 2}px</label>
-            <input type="range" min="1" max="16" value={selected.borderWidth ?? 2}
-              onChange={event => updateSelected({ borderWidth: Number(event.target.value) })} />
-            <label>Rounded Ends - {selected.borderRadius ?? 0}px</label>
-            <input type="range" min="0" max="12" value={selected.borderRadius ?? 0}
-              onChange={event => updateSelected({ borderRadius: Number(event.target.value) })} />
-          </> : <>
-          <label>Text Color</label><input type="color" value={inputColor(selected.color)} onChange={event => updateSelected({ color: event.target.value })} />
-          <label>Background Color</label><input type="color" value={inputColor(selected.background)} onChange={event => updateSelected({ background: event.target.value })} />
-          <label>Font Size - {selected.fontSize}px</label><input type="range" min="10" max="96" value={selected.fontSize} onChange={event => updateSelected({ fontSize: Number(event.target.value) })} />
-          <label>Padding - {selected.padding}px</label><input type="range" min="0" max="120" value={selected.padding} onChange={event => updateSelected({ padding: Number(event.target.value) })} />
+          <WebsiteContentInspector block={selected} onChange={updateSelected} />
+          </fieldset>
           <WebsiteStyleInspector block={selected} onChange={updateSelected} />
-          <label>Alignment</label><select value={selected.align} onChange={event => updateSelected({ align: event.target.value as WebBlock['align'] })}>
-            <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
-          </select>
-          </>}
+          <fieldset className="website-property-section"><legend>Layout</legend>
+          <label>Padding - {selected.padding}px</label><input type="range" min="0" max="120" value={selected.padding} onChange={event => updateSelected({ padding: Number(event.target.value) })} />
           {selected.type === 'section' ? <>
             <label>Section Height  -  {numberOr(selected.sectionHeight, DEFAULT_SECTION_HEIGHT)}px</label>
             <input type="range" min="120" max="1600" step="10" value={numberOr(selected.sectionHeight, DEFAULT_SECTION_HEIGHT)}
@@ -478,9 +520,14 @@ export default function WebsiteEditor() {
           <div className="website-inspector-actions">
             <button onClick={() => commitProject(previous => ({ ...previous, blocks: move(previous.blocks, selected.id, -1) }))}>Move Up</button>
             <button onClick={() => commitProject(previous => ({ ...previous, blocks: move(previous.blocks, selected.id, 1) }))}>Move Down</button>
+            {selected.type !== 'section' && <>
+              <button onClick={() => commitProject(previous => ({ ...previous, blocks: move(previous.blocks, selected.id, 1) }))}>Bring Forward</button>
+              <button onClick={() => commitProject(previous => ({ ...previous, blocks: move(previous.blocks, selected.id, -1) }))}>Send Backward</button>
+            </>}
             <button onClick={() => commitProject(previous => ({ ...previous, blocks: duplicate(previous.blocks, selected.id) }))}>Duplicate</button>
             <button onClick={() => { commitProject(previous => ({ ...previous, blocks: remove(previous.blocks, selected.id) })); setSelectedId(null); }}>Delete</button>
           </div>
+          </fieldset>
         </>}
       </aside>
     </div>

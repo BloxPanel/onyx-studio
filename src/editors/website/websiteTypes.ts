@@ -1,4 +1,11 @@
-export type BlockType = 'section' | 'heading' | 'text' | 'button' | 'image' | 'divider' | 'card';
+export const blockTypes = ['section', 'heading', 'text', 'button', 'image', 'divider', 'card', 'icon', 'badge', 'container', 'screenshot', 'faq'] as const;
+export type BlockType = typeof blockTypes[number];
+export type CardPreset = 'project' | 'feature' | 'information';
+export const cardPresets: Record<CardPreset, Partial<WebBlock>> = {
+  project: { cardPreset: 'project', text: 'Your Project', cardDescription: 'Describe what makes this project useful.', cardShowIcon: true, cardShowButton: true, cardButtonText: 'Explore project', background: '#222d46', borderColor: '#465575' },
+  feature: { cardPreset: 'feature', text: 'Powerful Feature', cardDescription: 'Explain the benefit of this feature.', cardShowIcon: true, cardShowButton: false, background: '#182e32', borderColor: '#2dd4bf' },
+  information: { cardPreset: 'information', text: 'Good to Know', cardDescription: 'Share helpful information with your visitors.', cardShowIcon: false, cardShowButton: false, background: '#24213b', borderColor: '#a78bfa' },
+};
 export type Align = 'left' | 'center' | 'right';
 export interface WebBlock {
   id: string;
@@ -30,18 +37,37 @@ export interface WebBlock {
   cardShowIcon?: boolean;
   cardShowButton?: boolean;
   cardGap?: number;
+  cardPreset?: CardPreset;
+  iconName?: string;
+  iconSize?: number;
+  showIcon?: boolean;
+  imageUrl?: string;
+  imageFit?: 'contain' | 'cover';
+  browserHeader?: boolean;
+  faqAnswer?: string;
+  faqOpen?: boolean;
+}
+export interface WebMetadata {
+  description?: string;
+  author?: string;
+  keywords?: string;
+  canonicalUrl?: string;
+  imageUrl?: string;
+  faviconUrl?: string;
+  language?: string;
 }
 export interface WebProject {
   version: 1;
   title: string;
   background: string;
   blocks: WebBlock[];
+  metadata?: WebMetadata;
 }
 export const DESIGN_WIDTH = 1000;
 export const DEFAULT_SECTION_HEIGHT = 440;
 export const createBlock = (type: BlockType): WebBlock => ({
   id: crypto.randomUUID(), type,
-  text: { section: '', heading: 'Your heading', text: 'Write something amazing.', button: 'Get Started', image: 'Image description', divider: '', card: 'Your Project' }[type],
+  text: { section: '', heading: 'Your heading', text: 'Write something amazing.', button: 'Get Started', image: 'Image description', divider: '', card: 'Your Project', icon: 'Star', badge: 'New release', container: '', screenshot: 'Website screenshot', faq: 'How does it work?' }[type],
   url: '', color: '#ffffff',
   background: type === 'section' ? '#172033' : type === 'button' ? '#6366f1' : type === 'card' ? '#222d46' : 'transparent',
   fontSize: type === 'heading' ? 42 : 16,
@@ -54,7 +80,13 @@ export const createBlock = (type: BlockType): WebBlock => ({
   width: type === 'card' ? 360 : type === 'button' ? 240 : type === 'image' ? 400 : 800,
   height: type === 'card' ? 310 : type === 'divider' ? 12 : type === 'heading' ? 90 : type === 'text' ? 100 : type === 'button' ? 70 : 240,
   sectionHeight: type === 'section' ? DEFAULT_SECTION_HEIGHT : undefined,
+  ...(type === 'icon' ? { iconName: 'star', iconSize: 48, width: 80, height: 80, padding: 8, borderWidth: 0 } : {}),
+  ...(type === 'badge' ? { iconName: 'sparkles', iconSize: 18, showIcon: false, width: 200, height: 48, padding: 10, borderRadius: 24, background: '#312e81', borderColor: '#818cf8' } : {}),
+  ...(type === 'container' ? { width: 500, height: 280, background: '#1e293b', borderRadius: 16, imageUrl: '', imageFit: 'cover' as const } : {}),
+  ...(type === 'screenshot' ? { width: 600, height: 360, padding: 0, borderRadius: 12, background: '#1e293b', browserHeader: true, imageFit: 'contain' as const } : {}),
+  ...(type === 'faq' ? { width: 700, height: 180, padding: 20, align: 'left' as Align, background: '#1e293b', borderRadius: 12, faqAnswer: 'Add your answer here.', faqOpen: false } : {}),
   ...(type === 'card' ? {
+    cardPreset: 'project' as CardPreset,
     cardDescription: 'Describe what makes this project useful.',
     cardIconUrl: 'https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/panels-top-left.svg',
     cardButtonText: 'Explore project', cardShowIcon: true, cardShowButton: true,
