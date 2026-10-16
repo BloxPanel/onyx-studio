@@ -16,7 +16,7 @@ function validBlock(value: unknown, depth = 0): value is WebBlock {
       const v = block[key as keyof WebBlock];
       return v === undefined || (typeof v === 'number' && Number.isFinite(v));
     }) &&
-    ['fontFamily','borderColor','cardDescription','cardIconUrl','cardButtonText','imageUrl','faqAnswer'].every(key => {
+    ['fontFamily','borderColor','cardDescription','cardIconUrl','cardIconLink','cardButtonText','imageUrl','faqAnswer'].every(key => {
       const v = block[key as keyof WebBlock];
       return v === undefined || typeof v === 'string';
     }) &&

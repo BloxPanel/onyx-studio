@@ -4,7 +4,7 @@ import { iconStyle, lucideIcons } from './websiteIcons';
 
 export default function WebsiteContentInspector({ block, onChange }: { block: WebBlock; onChange: (changes: Partial<WebBlock>) => void }) {
   const [search, setSearch] = useState('');
-  const text = (label: string, key: 'text' | 'url' | 'imageUrl' | 'faqAnswer', multiline = false) => <label>{label}
+  const text = (label: string, key: 'text' | 'url' | 'imageUrl' | 'faqAnswer' | 'cardIconUrl' | 'cardIconLink', multiline = false) => <label>{label}
     {multiline ? <textarea rows={4} value={block[key] ?? ''} onChange={event => onChange({ [key]: event.target.value })} />
       : <input value={block[key] ?? ''} onChange={event => onChange({ [key]: event.target.value })} />}
   </label>;
@@ -14,18 +14,19 @@ export default function WebsiteContentInspector({ block, onChange }: { block: We
   return <>
     {block.type === 'icon' && <>{text('Accessible Label', 'text')}{text('Link URL (optional)', 'url')}</>}
     {block.type === 'badge' && <>{text('Badge Text', 'text')}{check('Show Icon', 'showIcon', block.showIcon ?? false)}</>}
-    {(block.type === 'icon' || (block.type === 'badge' && block.showIcon)) && <>
-      <label>Lucide Icon — {block.iconName ?? 'star'}</label>
+    {(block.type === 'icon' || (block.type === 'card' && block.cardShowIcon !== false) || (block.type === 'badge' && block.showIcon)) && <>
+      <label>Lucide Icon — {block.iconName ?? (block.type === 'card' ? 'panels-top-left' : 'star')}</label>
       <input aria-label="Search Lucide icons" placeholder="Search icons…" value={search} onChange={event => setSearch(event.target.value)} />
       <div className="website-icon-picker" role="group" aria-label="Lucide icon picker">
         {lucideIcons.filter(name => name.includes(search.trim().toLowerCase())).map(name => <button type="button" key={name}
-          title={name} aria-label={name} aria-pressed={(block.iconName ?? 'star') === name} onClick={() => onChange({ iconName: name })}>
+          title={name} aria-label={name} aria-pressed={(block.iconName ?? (block.type === 'card' ? 'panels-top-left' : 'star')) === name} onClick={() => onChange({ iconName: name, ...(block.type === 'card' ? { cardIconUrl: undefined } : {}) })}>
           <span aria-hidden="true" style={iconStyle(name, 20)} />
         </button>)}
       </div>
       {!lucideIcons.some(name => name.includes(search.trim().toLowerCase())) && <p className="website-muted">No matching icons.</p>}
-      <label>Icon Size — {block.iconSize ?? 24}px<input type="range" min="12" max="160" value={block.iconSize ?? 24} onChange={event => onChange({ iconSize: Number(event.target.value) })} /></label>
+      <label>Icon Size — {block.iconSize ?? (block.type === 'card' ? 42 : 24)}px<input type="range" min="12" max="160" value={block.iconSize ?? (block.type === 'card' ? 42 : 24)} onChange={event => onChange({ iconSize: Number(event.target.value) })} /></label>
     </>}
+    {block.type === 'card' && block.cardShowIcon !== false && <>{text('Custom Icon URL (optional)', 'cardIconUrl')}{text('Icon Link URL (optional)', 'cardIconLink')}</>}
     {block.type === 'container' && <>{text('Image URL (optional)', 'imageUrl')}{text('Image Alt Text', 'text')}</>}
     {block.type === 'screenshot' && <>{text('Image URL', 'url')}{text('Image Alt Text / Browser Title', 'text')}{check('Show Browser Header', 'browserHeader', block.browserHeader !== false)}</>}
     {(block.type === 'screenshot' || block.type === 'container') && <label>Image Fit

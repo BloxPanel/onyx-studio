@@ -244,50 +244,15 @@ export default function WebsiteEditor() {
       x = clamp(Math.round(g.x + dx), 0, Math.max(0, DESIGN_WIDTH - g.width));
       y = clamp(Math.round(g.y + dy), 0, Math.max(0, g.sectionHeight - g.height));
       const tolerance = 6;
-      const section = findBlock(projectRef.current.blocks, g.sectionId);
-      const siblings = section?.children.filter(block => block.id !== g.id) ?? [];
-      type Snap = { position: number; guide: number; distance: number; priority: number };
-      const horizontalCandidates: Snap[] = [];
-      const verticalCandidates: Snap[] = [];
-      const addX = (position: number, guide: number, priority: number) => {
-        const distance = Math.abs(x - position);
-        if (distance <= tolerance && position >= 0 && position <= DESIGN_WIDTH - g.width)
-          horizontalCandidates.push({ position, guide, distance, priority });
-      };
-      const addY = (position: number, guide: number, priority: number) => {
-        const distance = Math.abs(y - position);
-        if (distance <= tolerance && position >= 0 && position <= g.sectionHeight - g.height)
-          verticalCandidates.push({ position, guide, distance, priority });
-      };
-      // Keep the existing section-center snapping.
-      addX((DESIGN_WIDTH - g.width) / 2, DESIGN_WIDTH / 2, 1);
-      addY((g.sectionHeight - g.height) / 2, g.sectionHeight / 2, 1);
-      // Align left/center/right and top/middle/bottom to other elements.
-      for (const sibling of siblings) {
-        const sx = numberOr(sibling.x, 100);
-        const sy = numberOr(sibling.y, 35);
-        const sw = numberOr(sibling.width, 800);
-        const sh = numberOr(sibling.height, 80);
-        for (const guide of [sx, sx + sw / 2, sx + sw]) {
-          addX(guide, guide, 0);
-          addX(guide - g.width / 2, guide, 0);
-          addX(guide - g.width, guide, 0);
-        }
-        for (const guide of [sy, sy + sh / 2, sy + sh]) {
-          addY(guide, guide, 0);
-          addY(guide - g.height / 2, guide, 0);
-          addY(guide - g.height, guide, 0);
-        }
-      }
-      // Closest alignment wins; another element wins an exact tie with page center.
-      const choose = (candidates: Snap[]) =>
-        candidates.sort((a, b) => a.distance - b.distance || a.priority - b.priority)[0];
-      const snapX = choose(horizontalCandidates);
-      const snapY = choose(verticalCandidates);
-      if (snapX) x = snapX.position;
-      if (snapY) y = snapY.position;
-      const verticalX = snapX?.guide ?? null;
-      const horizontalY = snapY?.guide ?? null;
+      // Snap the element's center only to the canvas midpoint on each axis.
+      const centerX = (DESIGN_WIDTH - g.width) / 2;
+      const centerY = (g.sectionHeight - g.height) / 2;
+      const snapX = centerX >= 0 && Math.abs(x - centerX) <= tolerance;
+      const snapY = centerY >= 0 && Math.abs(y - centerY) <= tolerance;
+      if (snapX) x = centerX;
+      if (snapY) y = centerY;
+      const verticalX = snapX ? DESIGN_WIDTH / 2 : null;
+      const horizontalY = snapY ? g.sectionHeight / 2 : null;
       setAlignmentGuides(previous => {
         if (previous?.sectionId === g.sectionId &&
           previous.verticalX === verticalX && previous.horizontalY === horizontalY) return previous;
@@ -349,7 +314,7 @@ export default function WebsiteEditor() {
         pointerEvents: 'none',
       }} />}
       {block.type === 'card' && <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: block.cardGap ?? 12, minHeight: 0, textAlign: block.align }}>
-        {block.cardShowIcon !== false && (block.cardIconUrl ? <img src={block.cardIconUrl} alt="" draggable={false} style={{ width: 42, height: 42, objectFit: 'contain', flexShrink: 0 }} /> : <span aria-hidden="true" style={{ fontSize: 30 }}>◆</span>)}
+        {block.cardShowIcon !== false && <span aria-hidden="true" style={iconStyle(block.iconName ?? 'panels-top-left', block.iconSize ?? 42, block.cardIconUrl)} />}
         <strong style={{ fontSize: 'inherit', fontWeight: block.fontWeight ?? 700, lineHeight: 1.2 }}>{block.text}</strong>
         <p style={{ margin: 0, fontSize: 15, fontWeight: 400, lineHeight: 1.5, whiteSpace: 'pre-wrap', color: '#cbd5e1' }}>{block.cardDescription ?? ''}</p>
         {block.cardShowButton !== false && <span style={{ marginTop: 'auto', fontSize: 14, fontWeight: 600, color: '#a5b4fc' }}>{block.cardButtonText || 'Explore project'} →</span>}
@@ -489,8 +454,6 @@ export default function WebsiteEditor() {
             </select>
             <label>Card Description</label>
             <textarea rows={4} value={selected.cardDescription ?? ''} onChange={event => updateSelected({ cardDescription: event.target.value })} />
-            <label>Icon Image URL</label>
-            <input value={selected.cardIconUrl ?? ''} onChange={event => updateSelected({ cardIconUrl: event.target.value })} placeholder="https://.../icon.svg" />
             <label><input type="checkbox" checked={selected.cardShowIcon !== false} onChange={event => updateSelected({ cardShowIcon: event.target.checked })} /> Show Icon</label>
             <label>Button Text</label>
             <input value={selected.cardButtonText ?? ''} onChange={event => updateSelected({ cardButtonText: event.target.value })} />

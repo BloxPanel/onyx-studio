@@ -33,6 +33,7 @@ export interface WebBlock {
   opacity?: number;
   cardDescription?: string;
   cardIconUrl?: string;
+  cardIconLink?: string;
   cardButtonText?: string;
   cardShowIcon?: boolean;
   cardShowButton?: boolean;
@@ -88,7 +89,7 @@ export const createBlock = (type: BlockType): WebBlock => ({
   ...(type === 'card' ? {
     cardPreset: 'project' as CardPreset,
     cardDescription: 'Describe what makes this project useful.',
-    cardIconUrl: 'https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/panels-top-left.svg',
+    iconName: 'panels-top-left', iconSize: 42,
     cardButtonText: 'Explore project', cardShowIcon: true, cardShowButton: true,
     cardGap: 12, padding: 22, align: 'left' as Align, fontSize: 22, fontWeight: 700,
     borderWidth: 2, borderColor: '#465575', color: '#ffffff',

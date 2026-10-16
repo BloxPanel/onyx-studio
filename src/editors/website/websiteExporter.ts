@@ -49,10 +49,11 @@ function renderElement(block: WebBlock, index: number): string {
     case 'faq': return `<details${block.faqOpen ? ' open' : ''} style="${style}overflow:auto"><summary style="cursor:pointer;font-weight:bold">${text}</summary><p style="white-space:pre-wrap;margin-bottom:0">${escapeHtml(block.faqAnswer ?? '')}</p></details>`;
     case 'divider': return `<div aria-hidden="true" style="${base}background:transparent;overflow:visible;opacity:${clamp(block.opacity,100,0,100) / 100}"><div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:${clamp(block.borderWidth,2,1,16)}px;background:${validColor(block.borderColor ?? '#94a3b8')};border-radius:${clamp(block.borderRadius,0,0,12)}px"></div></div>`;
     case 'card': {
-      const icon = safeUrl(block.cardIconUrl ?? '', true);
-      const iconHtml = block.cardShowIcon === false ? '' : icon
-        ? `<img src="${icon}" alt="" style="width:42px;height:42px;object-fit:contain;flex-shrink:0" />`
-        : `<span aria-hidden="true" style="font-size:30px">&#9670;</span>`;
+      const source = (safeUrl(block.cardIconUrl ?? '', true) || iconUrl(block.iconName ?? 'panels-top-left')).replace(/'/g, '%27');
+      const size = clamp(block.iconSize,42,12,160);
+      const cardIcon = `<span aria-hidden="true" style="display:inline-block;width:${size}px;height:${size}px;flex-shrink:0;background-color:currentColor;mask:url('${source}') center / contain no-repeat;-webkit-mask:url('${source}') center / contain no-repeat"></span>`;
+      const iconHtml = block.cardShowIcon === false ? '' : block.cardIconLink
+        ? `<a href="${safeUrl(block.cardIconLink)}" aria-label="${text || 'Card'}" style="display:flex;align-self:flex-start;color:inherit">${cardIcon}</a>` : cardIcon;
       const description = escapeHtml(block.cardDescription ?? '');
       const buttonText = escapeHtml(block.cardButtonText || 'Explore project');
       const button = block.cardShowButton === false ? '' : `<a href="${safeUrl(block.url)}" style="margin-top:auto;font-size:14px;font-weight:600;color:#a5b4fc;text-decoration:none">${buttonText} &rarr;</a>`;
