@@ -1,0 +1,117 @@
+export const blockTypes = ['section', 'heading', 'text', 'button', 'image', 'divider', 'card', 'pricing', 'steps', 'icon', 'badge', 'container', 'screenshot', 'faq'] as const;
+export type BlockType = typeof blockTypes[number];
+export type CardPreset = 'project' | 'feature' | 'information';
+export const cardPresets: Record<CardPreset, Partial<WebBlock>> = {
+  project: { cardPreset: 'project', text: 'Your Project', cardDescription: 'Describe what makes this project useful.', cardShowIcon: true, cardShowButton: true, cardButtonText: 'Explore project', background: '#222d46', borderColor: '#465575' },
+  feature: { cardPreset: 'feature', text: 'Powerful Feature', cardDescription: 'Explain the benefit of this feature.', cardShowIcon: true, cardShowButton: false, background: '#182e32', borderColor: '#2dd4bf' },
+  information: { cardPreset: 'information', text: 'Good to Know', cardDescription: 'Share helpful information with your visitors.', cardShowIcon: false, cardShowButton: false, background: '#24213b', borderColor: '#a78bfa' },
+};
+export type Align = 'left' | 'center' | 'right';
+export interface WebBlock {
+  id: string;
+  type: BlockType;
+  text: string;
+  url: string;
+  color: string;
+  background: string;
+  fontSize: number;
+  padding: number;
+  align: Align;
+  children: WebBlock[];
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  sectionHeight?: number;
+  fontFamily?: string;
+  fontWeight?: number;
+  italic?: boolean;
+  underline?: boolean;
+  borderRadius?: number;
+  borderWidth?: number;
+  borderColor?: string;
+  opacity?: number;
+  steps?: { title: string; description: string }[];
+  planPrice?: string;
+  planPeriod?: string;
+  planFeatures?: string;
+  planBadge?: string;
+  cardDescription?: string;
+  cardIconUrl?: string;
+  cardIconLink?: string;
+  cardButtonText?: string;
+  cardShowIcon?: boolean;
+  cardShowButton?: boolean;
+  cardGap?: number;
+  cardPreset?: CardPreset;
+  iconName?: string;
+  iconSize?: number;
+  showIcon?: boolean;
+  imageUrl?: string;
+  imageFit?: 'contain' | 'cover';
+  browserHeader?: boolean;
+  faqAnswer?: string;
+  faqOpen?: boolean;
+}
+export interface WebMetadata {
+  description?: string;
+  author?: string;
+  keywords?: string;
+  canonicalUrl?: string;
+  imageUrl?: string;
+  faviconUrl?: string;
+  language?: string;
+}
+export interface WebProject {
+  version: 1;
+  title: string;
+  background: string;
+  blocks: WebBlock[];
+  metadata?: WebMetadata;
+}
+export const DESIGN_WIDTH = 1000;
+export const DEFAULT_SECTION_HEIGHT = 440;
+export const createBlock = (type: BlockType): WebBlock => ({
+  id: crypto.randomUUID(), type,
+  text: { section: '', heading: 'Your heading', text: 'Write something amazing.', button: 'Get Started', image: 'Image description', divider: '', card: 'Your Project', pricing: 'Annual', steps: 'How it works', icon: 'Star', badge: 'New release', container: '', screenshot: 'Website screenshot', faq: 'How does it work?' }[type],
+  url: '', color: '#ffffff',
+  background: type === 'section' ? '#172033' : type === 'button' ? '#6366f1' : type === 'card' ? '#222d46' : 'transparent',
+  fontSize: type === 'heading' ? 42 : 16,
+  padding: type === 'section' ? 24 : 12,
+  align: 'center', children: [],
+  fontFamily: 'Arial, sans-serif', fontWeight: type === 'heading' ? 700 : 400,
+  italic: false, underline: false, borderRadius: type === 'card' ? 16 : type === 'button' ? 8 : 0,
+  borderWidth: type === 'section' ? 0 : 2, borderColor: type === 'divider' ? '#94a3b8' : '#818cf8', opacity: 100,
+  x: 100, y: 50,
+  width: type === 'card' ? 360 : type === 'button' ? 240 : type === 'image' ? 400 : 800,
+  height: type === 'card' ? 310 : type === 'divider' ? 12 : type === 'heading' ? 90 : type === 'text' ? 100 : type === 'button' ? 70 : 240,
+  sectionHeight: type === 'section' ? DEFAULT_SECTION_HEIGHT : undefined,
+  ...(type === 'icon' ? { iconName: 'star', iconSize: 48, width: 80, height: 80, padding: 8, borderWidth: 0 } : {}),
+  ...(type === 'badge' ? { iconName: 'sparkles', iconSize: 18, showIcon: false, width: 200, height: 48, padding: 10, borderRadius: 24, background: '#312e81', borderColor: '#818cf8' } : {}),
+  ...(type === 'container' ? { width: 500, height: 280, background: '#1e293b', borderRadius: 16, imageUrl: '', imageFit: 'cover' as const } : {}),
+  ...(type === 'screenshot' ? { width: 600, height: 360, padding: 0, borderRadius: 12, background: '#1e293b', browserHeader: true, imageFit: 'contain' as const } : {}),
+  ...(type === 'faq' ? { width: 700, height: 180, padding: 20, align: 'left' as Align, background: '#1e293b', borderRadius: 12, faqAnswer: 'Add your answer here.', faqOpen: false } : {}),
+  ...(type === 'steps' ? { width: 740, height: 260, padding: 12, background: '#1e293b', borderRadius: 12, borderWidth: 0, align: 'left' as Align, fontSize: 16, fontWeight: 700, steps: [
+    { title: 'Submit your website', description: 'Upload your HTML, CSS, and JavaScript files.' },
+    { title: 'Request reviewed', description: 'Your website is reviewed before approval.' },
+    { title: 'Complete payment', description: 'Pay the remaining balance after approval.' },
+    { title: 'Go live!', description: 'Your website is published.' },
+  ] } : {}),
+  ...(type === 'pricing' ? { width: 367, height: 240, padding: 12, background: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#3a4963', align: 'left' as Align, fontSize: 12, fontWeight: 700, planPrice: '$10', planPeriod: 'per year', planFeatures: 'Free subdomain\nHTTPS\nStatic files', planBadge: '', cardDescription: '', cardButtonText: 'Select Plan', cardShowButton: true, cardGap: 8 } : {}),
+  ...(type === 'card' ? {
+    cardPreset: 'project' as CardPreset,
+    cardDescription: 'Describe what makes this project useful.',
+    iconName: 'panels-top-left', iconSize: 42,
+    cardButtonText: 'Explore project', cardShowIcon: true, cardShowButton: true,
+    cardGap: 12, padding: 22, align: 'left' as Align, fontSize: 22, fontWeight: 700,
+    borderWidth: 2, borderColor: '#465575', color: '#ffffff',
+  } : {}),
+});
+export const initialWebsite: WebProject = {
+  version: 1, title: 'My Website', background: '#0b1020',
+  blocks: [{ ...createBlock('section'), children: [
+    { ...createBlock('heading'), text: 'Built with Onyx Studio', x: 100, y: 55, width: 800, height: 90 },
+    { ...createBlock('text'), text: 'Create your website visually. Own every line of the result.', x: 150, y: 175, width: 700, height: 75 },
+    { ...createBlock('button'), text: 'Explore Projects', url: 'https://builtbybuzz.dev', x: 370, y: 295, width: 260, height: 70 },
+  ] }],
+};

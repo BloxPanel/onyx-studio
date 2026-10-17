@@ -1,0 +1,54 @@
+.onyx-website-workspace{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.onyx-website-workspace>nav{flex-shrink:0}
+.website-editor{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:#0e111a;color:#eef0f8;font-family:system-ui,sans-serif}
+.website-editor button{cursor:pointer}
+.website-toolbar{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:18px 24px;border-bottom:1px solid #303648}
+.website-actions{display:flex;flex-wrap:wrap;gap:8px}
+.website-export-dropdown{position:relative}
+.website-export-dropdown>summary{list-style:none;cursor:pointer;border:1px solid #40465c;background:#232a3b;color:#fff;padding:9px 12px;border-radius:7px}
+.website-export-dropdown>summary::-webkit-details-marker{display:none}
+.website-export-dropdown>summary:focus-visible{outline:2px solid #a5b4fc;outline-offset:2px}
+.website-export-metadata{position:absolute;right:0;top:calc(100% + 8px);z-index:2000;width:min(360px,calc(100vw - 32px));max-height:calc(100dvh - 180px);overflow:auto;overscroll-behavior:contain;background:#151a27;border:1px solid #40465c;border-radius:10px;padding:18px;box-shadow:0 16px 40px #0008}
+.website-export-metadata label{display:block;margin:14px 0;font-size:13px}
+.website-export-metadata input,.website-export-metadata textarea{display:block;width:100%;margin-top:6px;background:#0e1320;color:white;border:1px solid #424a60;border-radius:7px;padding:9px}
+.website-actions button,.website-inspector-actions button{border:1px solid #40465c;background:#232a3b;color:#fff;padding:9px 12px;border-radius:7px}
+.website-actions button:disabled{opacity:.45;cursor:not-allowed}
+.website-layout{flex:1;min-height:0;display:grid;grid-template-columns:215px minmax(0,1fr) 290px;overflow:hidden}
+.website-library,.website-inspector{padding:20px;background:#151a27}
+.website-library{border-right:1px solid #303648}.website-inspector{border-left:1px solid #303648}
+.website-muted{font-size:12px;color:#a4abc1;line-height:1.5}
+.website-library-item{display:block;width:100%;text-align:left;background:#242b3e;border:1px solid #3b435a;color:white;border-radius:8px;padding:12px;margin:10px 0}
+.website-library-item:hover{background:#343e58}
+.website-canvas-area{padding:22px;min-width:0;overflow:auto}
+.website-canvas-label{font-size:13px;color:#b2bad0;margin-bottom:14px}
+.website-canvas-host{width:100%;min-width:0}
+.website-canvas{margin:0 auto;min-height:200px;border:1px solid #444b60;border-radius:10px;overflow:hidden;box-shadow:0 15px 45px #0005}
+.onyx-section-shell{position:relative;width:100%;overflow:hidden}
+.onyx-design-section{position:relative;cursor:default;user-select:none;touch-action:none}
+.onyx-design-section.section-active{outline:3px solid #818cf8;outline-offset:-3px}
+.onyx-free-block{border:2px solid transparent;cursor:grab;touch-action:none;user-select:none}
+.onyx-free-block:hover{border-color:#7c83c8}.onyx-free-block.active{border-color:#818cf8;cursor:move}
+.onyx-free-block img{pointer-events:none}
+.onyx-preview-link{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-weight:600}
+.onyx-block-tag,.onyx-section-tag{position:absolute;top:0;right:0;background:#6366f1;color:white;font-size:11px;padding:3px 8px;z-index:2;pointer-events:none}
+.onyx-resize-handle{position:absolute;right:0;bottom:0;width:17px;height:17px;background:#fff;border:3px solid #6366f1;cursor:nwse-resize;z-index:3;touch-action:none}
+.website-empty-canvas{padding:30px;text-align:center;color:#a4abc1}
+.website-inspector label{display:block;margin-top:18px;margin-bottom:7px;font-size:13px}
+.website-inspector input:not([type=color]):not([type=range]),.website-inspector textarea,.website-inspector select{width:100%;background:#0e1320;border:1px solid #424a60;color:white;padding:10px;border-radius:7px}
+.website-inspector input[type=color]{width:100%;height:38px}.website-inspector input[type=range]{width:100%}
+.website-inspector-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:25px}
+.onyx-coordinate-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.onyx-coordinate-grid label{margin-top:10px}
+
+.website-library,.website-canvas-area,.website-inspector{min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.website-inspector>h3{position:sticky;top:0;z-index:10;background:#151a27;margin:-20px -20px 16px;padding:20px;border-bottom:1px solid #303648}
+.website-property-section{border:0;border-top:1px solid #303648;margin:20px 0 0;padding:14px 0 0;min-width:0}
+.website-property-section legend{font-size:13px;font-weight:700;color:#c7caff;padding:0 8px 0 0}
+.website-inspector input[type=checkbox]{width:auto!important;margin-right:8px}
+.website-icon-picker{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;max-height:190px;overflow:auto;margin-top:8px}
+.website-icon-picker button{padding:8px;background:#242b3e;border:1px solid #40465c;display:flex;justify-content:center}
+.website-icon-picker button[aria-pressed=true]{border-color:#a5b4fc;background:#454074}
+.website-component-fill{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.website-browser-header{height:32px;flex-shrink:0;background:#334155;color:#cbd5e1;display:flex;align-items:center;padding:0 12px;font:12px system-ui,sans-serif}
+@media(max-width:1000px){.website-layout{grid-template-columns:160px minmax(120px,1fr) 250px}}
+@media(max-width:650px){.website-layout{grid-template-columns:140px minmax(180px,1fr) 230px;overflow-x:auto}.website-canvas-area{padding:12px}.website-toolbar{padding:10px;gap:8px}}
