@@ -48,6 +48,17 @@ function renderElement(block: WebBlock, index: number): string {
     }
     case 'faq': return `<details${block.faqOpen ? ' open' : ''} style="${style}overflow:auto"><summary style="cursor:pointer;font-weight:bold">${text}</summary><p style="white-space:pre-wrap;margin-bottom:0">${escapeHtml(block.faqAnswer ?? '')}</p></details>`;
     case 'divider': return `<div aria-hidden="true" style="${base}background:transparent;overflow:visible;opacity:${clamp(block.opacity,100,0,100) / 100}"><div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:${clamp(block.borderWidth,2,1,16)}px;background:${validColor(block.borderColor ?? '#94a3b8')};border-radius:${clamp(block.borderRadius,0,0,12)}px"></div></div>`;
+    case 'steps': {
+      const steps = (block.steps ?? []).map((step, index) => `<li style="display:flex;gap:12px;align-items:flex-start"><span aria-hidden="true" style="display:flex;align-items:center;justify-content:center;flex-shrink:0;min-width:28px;height:32px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:#37335c;color:#bec8f5;font-size:12px">${String(index + 1).padStart(2, '0')}</span><div style="min-width:0"><strong style="font-size:13px;display:block;line-height:1.3">${escapeHtml(step.title)}</strong><p style="margin:6px 0 0;color:#aab8d0;font-size:12px;font-weight:400;line-height:1.4;white-space:pre-wrap">${escapeHtml(step.description)}</p></div></li>`).join('');
+      return `<article style="${style}"><strong style="display:block;margin-bottom:16px">${text}</strong><ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px">${steps}</ol></article>`;
+    }
+    case 'pricing': {
+      const badge = block.planBadge ? `<span style="align-self:flex-start;border-radius:20px;background:#334155;padding:4px 10px;font-size:11px">${escapeHtml(block.planBadge)}</span>` : '';
+      const features = (block.planFeatures ?? '').split('\n').filter(line => line.trim()).map(line => `<li style="display:flex;gap:6px"><span aria-hidden="true" style="color:#6ee7b7">&#10003;</span><span>${escapeHtml(line)}</span></li>`).join('');
+      const description = block.cardDescription ? `<p style="margin:0;font-size:12px;font-weight:400">${escapeHtml(block.cardDescription)}</p>` : '';
+      const button = block.cardShowButton === false ? '' : `<a href="${safeUrl(block.url)}" style="margin-top:auto;flex-shrink:0;background:#34435f;color:inherit;border-radius:6px;padding:9px 12px;font-size:11px;font-weight:700;text-align:center;text-decoration:none">${escapeHtml(block.cardButtonText || 'Select Plan')}</a>`;
+      return `<article style="${style}display:flex;flex-direction:column;gap:${clamp(block.cardGap,8,0,40)}px">${badge}<strong style="color:#becbea">${text}</strong><div style="font-size:24px;font-weight:700;line-height:1.3">${escapeHtml(block.planPrice ?? '')}</div><div style="font-size:10px;font-weight:400;color:#b8c5db">${escapeHtml(block.planPeriod ?? '')}</div>${description}<div aria-hidden="true" style="border-top:1px solid #3a4963;margin:6px 0"></div><ul style="margin:0;padding:0;list-style:none;font-size:12px;font-weight:400;line-height:1.35;display:flex;flex-direction:column;gap:8px">${features}</ul>${button}</article>`;
+    }
     case 'card': {
       const source = (safeUrl(block.cardIconUrl ?? '', true) || iconUrl(block.iconName ?? 'panels-top-left')).replace(/'/g, '%27');
       const size = clamp(block.iconSize,42,12,160);
@@ -61,7 +72,7 @@ function renderElement(block: WebBlock, index: number): string {
     }
     case 'heading': return `<h2 style="${style}margin:0;line-height:1.2">${text}</h2>`;
     case 'text': return `<p style="${style}margin:0;line-height:1.5;white-space:pre-wrap">${text}</p>`;
-    case 'button': return `<a href="${safeUrl(block.url)}" style="${style}display:flex;align-items:center;justify-content:center;text-decoration:none">${text}</a>`;
+    case 'button': return `<a href="${safeUrl(block.url)}" style="${style}display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${text}${block.showIcon ? icon : ''}</a>`;
     case 'image': {
       const src = safeUrl(block.url, true);
       return src ? `<img src="${src}" alt="${text}" style="${style}object-fit:contain" />` : '';

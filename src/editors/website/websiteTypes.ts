@@ -1,4 +1,4 @@
-export const blockTypes = ['section', 'heading', 'text', 'button', 'image', 'divider', 'card', 'icon', 'badge', 'container', 'screenshot', 'faq'] as const;
+export const blockTypes = ['section', 'heading', 'text', 'button', 'image', 'divider', 'card', 'pricing', 'steps', 'icon', 'badge', 'container', 'screenshot', 'faq'] as const;
 export type BlockType = typeof blockTypes[number];
 export type CardPreset = 'project' | 'feature' | 'information';
 export const cardPresets: Record<CardPreset, Partial<WebBlock>> = {
@@ -31,6 +31,11 @@ export interface WebBlock {
   borderWidth?: number;
   borderColor?: string;
   opacity?: number;
+  steps?: { title: string; description: string }[];
+  planPrice?: string;
+  planPeriod?: string;
+  planFeatures?: string;
+  planBadge?: string;
   cardDescription?: string;
   cardIconUrl?: string;
   cardIconLink?: string;
@@ -68,7 +73,7 @@ export const DESIGN_WIDTH = 1000;
 export const DEFAULT_SECTION_HEIGHT = 440;
 export const createBlock = (type: BlockType): WebBlock => ({
   id: crypto.randomUUID(), type,
-  text: { section: '', heading: 'Your heading', text: 'Write something amazing.', button: 'Get Started', image: 'Image description', divider: '', card: 'Your Project', icon: 'Star', badge: 'New release', container: '', screenshot: 'Website screenshot', faq: 'How does it work?' }[type],
+  text: { section: '', heading: 'Your heading', text: 'Write something amazing.', button: 'Get Started', image: 'Image description', divider: '', card: 'Your Project', pricing: 'Annual', steps: 'How it works', icon: 'Star', badge: 'New release', container: '', screenshot: 'Website screenshot', faq: 'How does it work?' }[type],
   url: '', color: '#ffffff',
   background: type === 'section' ? '#172033' : type === 'button' ? '#6366f1' : type === 'card' ? '#222d46' : 'transparent',
   fontSize: type === 'heading' ? 42 : 16,
@@ -86,6 +91,13 @@ export const createBlock = (type: BlockType): WebBlock => ({
   ...(type === 'container' ? { width: 500, height: 280, background: '#1e293b', borderRadius: 16, imageUrl: '', imageFit: 'cover' as const } : {}),
   ...(type === 'screenshot' ? { width: 600, height: 360, padding: 0, borderRadius: 12, background: '#1e293b', browserHeader: true, imageFit: 'contain' as const } : {}),
   ...(type === 'faq' ? { width: 700, height: 180, padding: 20, align: 'left' as Align, background: '#1e293b', borderRadius: 12, faqAnswer: 'Add your answer here.', faqOpen: false } : {}),
+  ...(type === 'steps' ? { width: 740, height: 260, padding: 12, background: '#1e293b', borderRadius: 12, borderWidth: 0, align: 'left' as Align, fontSize: 16, fontWeight: 700, steps: [
+    { title: 'Submit your website', description: 'Upload your HTML, CSS, and JavaScript files.' },
+    { title: 'Request reviewed', description: 'Your website is reviewed before approval.' },
+    { title: 'Complete payment', description: 'Pay the remaining balance after approval.' },
+    { title: 'Go live!', description: 'Your website is published.' },
+  ] } : {}),
+  ...(type === 'pricing' ? { width: 367, height: 240, padding: 12, background: '#1e293b', borderRadius: 12, borderWidth: 1, borderColor: '#3a4963', align: 'left' as Align, fontSize: 12, fontWeight: 700, planPrice: '$10', planPeriod: 'per year', planFeatures: 'Free subdomain\nHTTPS\nStatic files', planBadge: '', cardDescription: '', cardButtonText: 'Select Plan', cardShowButton: true, cardGap: 8 } : {}),
   ...(type === 'card' ? {
     cardPreset: 'project' as CardPreset,
     cardDescription: 'Describe what makes this project useful.',

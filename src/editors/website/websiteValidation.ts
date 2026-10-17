@@ -16,7 +16,7 @@ function validBlock(value: unknown, depth = 0): value is WebBlock {
       const v = block[key as keyof WebBlock];
       return v === undefined || (typeof v === 'number' && Number.isFinite(v));
     }) &&
-    ['fontFamily','borderColor','cardDescription','cardIconUrl','cardIconLink','cardButtonText','imageUrl','faqAnswer'].every(key => {
+    ['planPrice','planPeriod','planFeatures','planBadge','fontFamily','borderColor','cardDescription','cardIconUrl','cardIconLink','cardButtonText','imageUrl','faqAnswer'].every(key => {
       const v = block[key as keyof WebBlock];
       return v === undefined || typeof v === 'string';
     }) &&
@@ -24,6 +24,7 @@ function validBlock(value: unknown, depth = 0): value is WebBlock {
       const v = block[key as keyof WebBlock];
       return v === undefined || typeof v === 'boolean';
     }) &&
+    (block.steps === undefined || (Array.isArray(block.steps) && block.steps.length <= 100 && block.steps.every(step => typeof step === 'object' && step !== null && typeof step.title === 'string' && typeof step.description === 'string'))) &&
     (block.iconName === undefined || lucideIcons.includes(block.iconName as typeof lucideIcons[number])) &&
     (block.imageFit === undefined || ['contain', 'cover'].includes(block.imageFit)) &&
     (block.cardPreset === undefined || ['project', 'feature', 'information'].includes(block.cardPreset));

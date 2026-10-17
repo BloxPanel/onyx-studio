@@ -63,6 +63,39 @@ function download(filename: string, content: string, mime: string) {
   link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+type SavePickerWindow = Window & {
+  showSaveFilePicker?: (options: {
+    suggestedName: string;
+    types: { description: string; accept: Record<string, string[]> }[];
+  }) => Promise<{ createWritable: () => Promise<{ write: (data: string) => Promise<void>; close: () => Promise<void>; abort: () => Promise<void> }> }>;
+};
+async function saveProjectFile(project: WebProject) {
+  const content = JSON.stringify(project, null, 2);
+  const pickerWindow = window as SavePickerWindow;
+  if (!pickerWindow.showSaveFilePicker) {
+    download('website.onyx', content, 'application/json');
+    return;
+  }
+  try {
+    const handle = await pickerWindow.showSaveFilePicker({
+      suggestedName: 'website.onyx',
+      types: [{ description: 'Onyx Studio Project', accept: { 'application/json': ['.onyx'] } }],
+    });
+    const writable = await handle.createWritable();
+    try {
+      await writable.write(content);
+      await writable.close();
+    } catch (error) {
+      await writable.abort().catch(() => {});
+      throw error;
+    }
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    console.error('Project save failed', error);
+    window.alert('The project could not be saved. Please try again or choose another location.');
+  }
+}
+
 type Gesture = { id: string; sectionId: string; pointerId: number; kind: 'move' | 'resize'; startX: number; startY: number; x: number; y: number; width: number; height: number; sectionHeight: number; scale: number };
 export default function WebsiteEditor() {
   const [project, setProject] = useState<WebProject>(loadProject);
@@ -194,7 +227,14 @@ export default function WebsiteEditor() {
   const scale = Math.min(1, Math.max(0.1, Math.min(canvasWidth, device === 'mobile' ? 390 : DESIGN_WIDTH) / DESIGN_WIDTH));
   function updateSelected(changes: Partial<WebBlock>) {
     if (!selectedId) return;
-    commitProject(previous => ({ ...previous, blocks: modify(previous.blocks, selectedId, block => ({ ...block, ...changes })) }));
+    commitProject(previous => ({ ...previous, blocks: modify(previous.blocks, selectedId, block => {
+      const updated = { ...block, ...changes };
+      if (updated.type === 'section' && changes.sectionHeight !== undefined) {
+        const contentBottom = updated.children.reduce((bottom, child, index) => Math.max(bottom, numberOr(child.y, 35 + index * 110) + numberOr(child.height, 80)), 120);
+        updated.sectionHeight = Math.max(contentBottom, changes.sectionHeight);
+      }
+      return updated;
+    }) }));
   }
   function addBlock(type: BlockType) {
     const block = createBlock(type);
@@ -313,6 +353,25 @@ export default function WebsiteEditor() {
         borderRadius: block.borderRadius ?? 0,
         pointerEvents: 'none',
       }} />}
+      {block.type === 'steps' && <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
+        <strong style={{ display: 'block', marginBottom: 16 }}>{block.text}</strong>
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {(block.steps ?? []).map((step, index) => <li key={index} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, minWidth: 28, height: 32, padding: '0 4px', boxSizing: 'border-box', borderRadius: 9, background: '#37335c', color: '#bec8f5', fontSize: 12 }}>{String(index + 1).padStart(2, '0')}</span>
+            <div style={{ minWidth: 0 }}><strong style={{ fontSize: 13, display: 'block', lineHeight: 1.3 }}>{step.title}</strong><p style={{ margin: '6px 0 0', color: '#aab8d0', fontSize: 12, fontWeight: 400, lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>{step.description}</p></div>
+          </li>)}
+        </ol>
+      </div>}
+      {block.type === 'pricing' && <div style={{ display: 'flex', flexDirection: 'column', gap: block.cardGap ?? 8, width: '100%', height: '100%', minHeight: 0 }}>
+        {block.planBadge && <span style={{ alignSelf: 'flex-start', borderRadius: 20, background: '#334155', padding: '4px 10px', fontSize: 11 }}>{block.planBadge}</span>}
+        <strong style={{ color: '#becbea' }}>{block.text}</strong>
+        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.3 }}>{block.planPrice}</div>
+        <div style={{ fontSize: 10, fontWeight: 400, color: '#b8c5db' }}>{block.planPeriod}</div>
+        {block.cardDescription && <p style={{ margin: 0, fontSize: 12, fontWeight: 400 }}>{block.cardDescription}</p>}
+        <div aria-hidden="true" style={{ borderTop: '1px solid #3a4963', margin: '6px 0' }} />
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', fontSize: 12, fontWeight: 400, lineHeight: 1.35, display: 'flex', flexDirection: 'column', gap: 8 }}>{(block.planFeatures ?? '').split('\n').filter(line => line.trim()).map((line, index) => <li key={index} style={{ display: 'flex', gap: 6 }}><span aria-hidden="true" style={{ color: '#6ee7b7' }}>&#10003;</span><span>{line}</span></li>)}</ul>
+        {block.cardShowButton !== false && <span style={{ marginTop: 'auto', flexShrink: 0, background: '#34435f', borderRadius: 6, padding: '9px 12px', fontSize: 11, fontWeight: 700, textAlign: 'center' }}>{block.cardButtonText || 'Select Plan'}</span>}
+      </div>}
       {block.type === 'card' && <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: block.cardGap ?? 12, minHeight: 0, textAlign: block.align }}>
         {block.cardShowIcon !== false && <span aria-hidden="true" style={iconStyle(block.iconName ?? 'panels-top-left', block.iconSize ?? 42, block.cardIconUrl)} />}
         <strong style={{ fontSize: 'inherit', fontWeight: block.fontWeight ?? 700, lineHeight: 1.2 }}>{block.text}</strong>
@@ -321,7 +380,7 @@ export default function WebsiteEditor() {
       </div>}
       {block.type === 'heading' && <h2 style={{ margin: 0, fontSize: 'inherit', lineHeight: 1.2 }}>{block.text}</h2>}
       {block.type === 'text' && <p style={{ margin: 0, fontSize: 'inherit', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{block.text}</p>}
-      {block.type === 'button' && <span className="onyx-preview-link">{block.text}</span>}
+      {block.type === 'button' && <span className="onyx-preview-link" style={{ gap: 8 }}>{block.text}{block.showIcon && <span aria-hidden="true" style={iconStyle(block.iconName, block.iconSize ?? 18)} />}</span>}
       {block.type === 'image' && (block.url ? <img src={block.url} alt={block.text} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} draggable={false} /> : <span>Enter an image URL</span>)}
       {block.type === 'icon' && <div className="website-component-fill"><span role="img" aria-label={block.text || block.iconName || 'Icon'} style={iconStyle(block.iconName, block.iconSize ?? 48)} /></div>}
       {block.type === 'badge' && <div className="website-component-fill">
@@ -379,7 +438,7 @@ export default function WebsiteEditor() {
           title="Redo (Ctrl+Y or Ctrl+Shift+Z)" aria-keyshortcuts="Control+Y Control+Shift+Z Meta+Shift+Z">Redo</button>
         <button onClick={() => setDevice('desktop')}>Desktop</button>
         <button onClick={() => setDevice('mobile')}>Mobile</button>
-        <button onClick={() => download('website.onyx', JSON.stringify(project, null, 2), 'application/json')}>Save Project</button>
+        <button onClick={() => void saveProjectFile(project)}>Save Project</button>
         <button onClick={() => fileInput.current?.click()}>Open Project</button>
         <button onClick={() => download('index.html', exportWebsite(project), 'text/html')}>Export HTML</button>
         <details className="website-export-dropdown" onKeyDown={event => {
@@ -439,7 +498,7 @@ export default function WebsiteEditor() {
         </> : <>
           <strong>{selected.type === 'screenshot' ? 'SCREENSHOT FRAME' : selected.type.toUpperCase()}</strong>
           <fieldset className="website-property-section"><legend>Content</legend>
-          {!['section', 'divider', 'icon', 'badge', 'container', 'screenshot', 'faq'].includes(selected.type) && <>
+          {!['section', 'divider', 'icon', 'badge', 'container', 'screenshot', 'faq', 'pricing', 'steps'].includes(selected.type) && <>
             <label>{selected.type === 'image' ? 'Alt Text' : selected.type === 'card' ? 'Card Title' : 'Content'}</label>
             <textarea rows={3} value={selected.text} onChange={event => updateSelected({ text: event.target.value })} />
           </>}
@@ -470,8 +529,10 @@ export default function WebsiteEditor() {
           <label>Padding - {selected.padding}px</label><input type="range" min="0" max="120" value={selected.padding} onChange={event => updateSelected({ padding: Number(event.target.value) })} />
           {selected.type === 'section' ? <>
             <label>Section Height  -  {numberOr(selected.sectionHeight, DEFAULT_SECTION_HEIGHT)}px</label>
-            <input type="range" min="120" max="1600" step="10" value={numberOr(selected.sectionHeight, DEFAULT_SECTION_HEIGHT)}
+            <input aria-label="Section height" type="range" min="120" max={Math.max(20000, numberOr(selected.sectionHeight, DEFAULT_SECTION_HEIGHT))} step="1" value={numberOr(selected.sectionHeight, DEFAULT_SECTION_HEIGHT)}
               onChange={event => updateSelected({ sectionHeight: Number(event.target.value) })} />
+            <label>Exact Section Height<input type="number" min="120" value={numberOr(selected.sectionHeight, DEFAULT_SECTION_HEIGHT)} onChange={event => updateSelected({ sectionHeight: Math.max(120, Number(event.target.value) || 120) })} /></label>
+            <p className="website-muted">Height stays large enough to contain all elements.</p>
           </> : <>
             <div className="onyx-coordinate-grid">
               {(['x', 'y', 'width', 'height'] as const).map(key => <label key={key}>{key.toUpperCase()}
